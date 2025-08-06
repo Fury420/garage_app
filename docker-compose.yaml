@@ -1,0 +1,27 @@
+version: '3'
+services:
+  # Služba pre aplikáciu
+  app:
+    build:
+      context: ./backend  # Adresár, kde je Dockerfile pre aplikáciu
+    ports:
+      - "8000:8000"  # Mapovanie portu z kontajnera na hostiteľský systém
+    depends_on:
+      - db  # Aplikácia závisí na databáze (spustí sa až po spustení db)
+    environment:
+      - DATABASE_URL=postgresql://dbuser:pwd@db:5432/mydb  # Pripojenie na databázu (db je názov služby)
+
+  # Služba pre PostgreSQL databázu
+  db:
+    image: postgres:13  # Použijeme oficiálny PostgreSQL obraz
+    environment:
+      POSTGRES_USER: dbuser  # Používateľ pre databázu
+      POSTGRES_PASSWORD: pwd  # Heslo pre používateľa
+      POSTGRES_DB: mydb  # Názov databázy
+    ports:
+      - "5432:5432"  # Exponujeme port 5432, ktorý používame na pripojenie k databáze
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Uložíme dáta z databázy mimo kontajner, aby sa nevymazali po zastavení kontajnera
+
+volumes:
+  postgres_data:  # Volumes pre uchovávanie dát mimo kontajnera

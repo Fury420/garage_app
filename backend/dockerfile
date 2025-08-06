@@ -1,0 +1,16 @@
+FROM python:3.9-slim
+
+# Nastavíme pracovný adresár v kontejnery
+WORKDIR /app
+
+# Skopírujeme requirements.txt do kontajnera
+COPY requirements.txt .
+
+# Nainštalujeme závislosti
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Skopírujeme celú aplikáciu do kontajnera
+COPY . .
+
+# Predvolený príkaz na spustenie aplikácie
+CMD ["python", "main.py"]
