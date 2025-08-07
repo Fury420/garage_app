@@ -24,13 +24,14 @@ try:
     #cursor.execute(bills.create())
     #connect.commit()
 
-    #cursor.execute(bills.insert())
-    #connect.commit()
+    cursor.execute(bills.insert(), (2, 'Frantisek', 29.99, '18.9.2008') )
+    connect.commit()
 
-    number = bills.get_column(cursor, 1, 'price')
+    if(bills.get_column(cursor, 1, 'price') is None):
+        print("error")
     #number = cursor.fetchone()
     #connect.commit()
-    print(number)
+    #print(number)
 except Exception as error:
     print(error)
 

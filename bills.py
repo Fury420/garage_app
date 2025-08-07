@@ -1,10 +1,9 @@
-#inserts row into the table bills
 import helper_functions
 
-
+#inserts row into the table bills
 def insert():
-    return '''INSERT INTO bills (id, supplier, price, date)
-                VALUES (1, 'Book', 19.99, '12.3.2004');'''
+    return f'''INSERT INTO bills (id, supplier, price, date)
+                VALUES (%s, %s, %s, %s);'''
 
 
 #creates new table bills with columns: id, supplier, price, date
