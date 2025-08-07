@@ -1,5 +1,8 @@
 import psycopg2
-import create
+import bills
+import items
+import suppliers
+import helper_functions
 
 hostname = 'localhost'
 database = 'postgres'
@@ -16,11 +19,18 @@ try:
         port=port)
 
     cursor = connect.cursor()
-    test = '''CREATE TABLE IF NOT EXISTS ahoj (id int PRIMARY KEY, name VARCHAR(50))'''
-    cursor.execute(test)
-    #cursor.execute(create.create_faktura())
-    connect.commit()
-    print("ahoj")
+
+
+    #cursor.execute(bills.create())
+    #connect.commit()
+
+    #cursor.execute(bills.insert())
+    #connect.commit()
+
+    number = bills.get_column(cursor, 1, 'price')
+    #number = cursor.fetchone()
+    #connect.commit()
+    print(number)
 except Exception as error:
     print(error)
 
