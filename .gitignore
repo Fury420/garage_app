@@ -2,5 +2,5 @@
 .idea/
 
 # Config
-./backend/mindee_api_config.json
+*mindee_api_config.json
 
