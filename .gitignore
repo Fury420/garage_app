@@ -1,1 +1,6 @@
+# JetBrains IDE
 .idea/
+
+# Config
+./backend/mindee_api_config.json
+
