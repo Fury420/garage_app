@@ -18,8 +18,7 @@ LI_DESCRIPTION_FIELD_NAME = "description"
 LI_ITEM_SEPARATOR = '*'
 LI_ITEM_TAG_SEPARATOR = ':'
 
-TEST_INVOICE_PATH_1 = "./testdata/faktura_1879416951.pdf"
-TEST_INVOICE_PATH_2 = "./testdata/faktura-21072107.pdf"
+TEST_INVOICE_PATH = "./mindee_test_data/vlcie_sirupy.pdf"
 
 class Invoice:
     def __init__(self, resp: InferenceResponse):
@@ -99,7 +98,7 @@ if __name__ == '__main__':
 
     # load file from disk to mindee client instance
     input_source = mindee_client.source_from_path(
-        input_path=Path(TEST_INVOICE_PATH_1),
+        input_path=Path(TEST_INVOICE_PATH),
         fix_pdf=False)
 
     # compression for pdfs
