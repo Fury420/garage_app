@@ -1,6 +1,12 @@
 from mindee import ClientV2, InferenceParameters, InferenceResponse
+from mindee.parsing.v2.field.simple_field import SimpleField
+from mindee.parsing.v2.field.list_field import ListField
+from mindee.parsing.v2.field.object_field import ObjectField
 from pathlib import Path
+from datetime import date
+from typing import Union
 import json
+
 
 API_CONF_PATH = "./mindee_api_config.json"
 API_CONF_API_KEY = "api_key"
@@ -11,7 +17,9 @@ VAT_AMOUNT_FIELD_NAME = "vat_amount"
 VENDOR_NAME_FIELD_NAME = "vendor_name"
 TOTAL_AMOUNT_FIELD_NAME = "total_amount"
 INVOICE_NUMBER_FIELD_NAME = "invoice_number"
+TOTAL_AMOUNT_WITHOUT_VAT_FIELD_NAME = "total_amount_without_vat"
 LINE_ITEMS_FIELD_NAME = "line_items"
+
 LI_QUANTITY_FIELD_NAME = "quantity"
 LI_UNIT_PRICE_FIELD_NAME = "unit_price"
 LI_DESCRIPTION_FIELD_NAME = "description"
@@ -20,64 +28,111 @@ LI_ITEM_TAG_SEPARATOR = ':'
 
 TEST_INVOICE_PATH = "./mindee_test_data/vlcie_sirupy.pdf"
 
+
+class InvoiceItem:
+
+    quantity: Union[int, None]
+    unit_price: Union[float, None]
+    description: Union[str, None]
+
+    def __init__(self):
+        self.quantity = None
+        self.unit_price = None
+        self.description = None
+
+
 class Invoice:
+
+    date: Union[date, None]
+    vat_amount: Union[float, None]
+    vendor_name: Union[str, None]
+    total_amount: Union[float, None]
+    invoice_number: Union[str, None]
+    total_amount_without_vat: Union[float, None]
+    line_items: Union[list[InvoiceItem], None]
+
     def __init__(self, resp: InferenceResponse):
-        self.date: str | None = resp.inference.result.fields.get(DATE_FIELD_NAME)
-        self.vat_amount: str | None = resp.inference.result.fields.get(VAT_AMOUNT_FIELD_NAME)
-        self.vendor_name: str | None = resp.inference.result.fields.get(VENDOR_NAME_FIELD_NAME)
-        self.total_amount: str | None = resp.inference.result.fields.get(TOTAL_AMOUNT_FIELD_NAME)
-        self.invoice_number: str | None = resp.inference.result.fields.get(INVOICE_NUMBER_FIELD_NAME)
-        self.line_items: list[dict[str, str]] | None = None
-        self.__init_line_items__(resp)
-
-    def __init_line_items__(self, resp: InferenceResponse) -> None:
-        if resp.inference.result.fields.get(LINE_ITEMS_FIELD_NAME) is None:
-            return None
-        self.line_items = []
-        known_prefixes: dict[str, str] = {
-            LI_QUANTITY_FIELD_NAME : f"{LI_ITEM_TAG_SEPARATOR}{LI_QUANTITY_FIELD_NAME}{LI_ITEM_TAG_SEPARATOR}",
-            LI_UNIT_PRICE_FIELD_NAME : f"{LI_ITEM_TAG_SEPARATOR}{LI_UNIT_PRICE_FIELD_NAME}{LI_ITEM_TAG_SEPARATOR}",
-            LI_DESCRIPTION_FIELD_NAME : f"{LI_ITEM_TAG_SEPARATOR}{LI_DESCRIPTION_FIELD_NAME}{LI_ITEM_TAG_SEPARATOR}"}
-        response_blocks: list[str] = (resp.inference.result.fields.get(LINE_ITEMS_FIELD_NAME)
-                                      .multi_str().split(LI_ITEM_SEPARATOR))
-        for block in response_blocks:
-            item_dict: dict[str, str] = {}
-            lines: list[str] = block.splitlines()
-            for line in lines:
-                stripped_line: str = line.strip()
-                if not stripped_line:
+        date_raw = resp.inference.result.fields.get(DATE_FIELD_NAME)
+        if date_raw is not None and isinstance(date_raw, SimpleField) \
+                and date_raw.value is not None and isinstance(date_raw.value, str):
+            self.date = date.fromisoformat(date_raw.value)
+        else:
+            self.date = None
+        vat_amount_raw = resp.inference.result.fields.get(VAT_AMOUNT_FIELD_NAME)
+        if vat_amount_raw is not None and isinstance(vat_amount_raw, SimpleField) \
+                and vat_amount_raw.value is not None and isinstance(vat_amount_raw.value, float):
+            self.vat_amount = vat_amount_raw.value
+        else:
+            self.vat_amount = None
+        vendor_name_raw = resp.inference.result.fields.get(VENDOR_NAME_FIELD_NAME)
+        if vendor_name_raw is not None and isinstance(vendor_name_raw, SimpleField) \
+                and vendor_name_raw.value is not None and isinstance(vendor_name_raw.value, str):
+            self.vendor_name = vendor_name_raw.value
+        else:
+            self.vendor_name = None
+        total_amount_raw = resp.inference.result.fields.get(TOTAL_AMOUNT_FIELD_NAME)
+        if total_amount_raw is not None and isinstance(total_amount_raw, SimpleField) \
+                and total_amount_raw.value is not None and isinstance(total_amount_raw.value, float):
+            self.total_amount = total_amount_raw.value
+        else:
+            self.total_amount = None
+        invoice_number_raw = resp.inference.result.fields.get(INVOICE_NUMBER_FIELD_NAME)
+        if invoice_number_raw is not None and isinstance(invoice_number_raw, SimpleField) \
+                and invoice_number_raw.value is not None and isinstance(invoice_number_raw.value, str):
+            self.invoice_number = invoice_number_raw.value
+        else:
+            self.invoice_number = None
+        total_amount_without_vat_raw = resp.inference.result.fields.get(TOTAL_AMOUNT_WITHOUT_VAT_FIELD_NAME)
+        if total_amount_without_vat_raw is not None and isinstance(total_amount_without_vat_raw, SimpleField) \
+                and total_amount_without_vat_raw.value is not None \
+                and isinstance(total_amount_without_vat_raw.value, float):
+            self.total_amount_without_vat = total_amount_without_vat_raw.value
+        else:
+            self.total_amount_without_vat = None
+        line_items_raw = resp.inference.result.fields.get(LINE_ITEMS_FIELD_NAME)
+        if line_items_raw is not None and isinstance(line_items_raw, ListField):
+            self.line_items = []
+            for item in line_items_raw.items:
+                if not isinstance(item, ObjectField):
                     continue
-                elif stripped_line.startswith(known_prefixes[LI_QUANTITY_FIELD_NAME]):
-                    item_dict[LI_QUANTITY_FIELD_NAME] = \
-                        stripped_line[len(known_prefixes[LI_QUANTITY_FIELD_NAME]):].strip()
-                elif stripped_line.startswith(known_prefixes[LI_UNIT_PRICE_FIELD_NAME]):
-                    item_dict[LI_UNIT_PRICE_FIELD_NAME] = \
-                        stripped_line[len(known_prefixes[LI_UNIT_PRICE_FIELD_NAME]):].strip()
-                elif stripped_line.startswith(known_prefixes[LI_DESCRIPTION_FIELD_NAME]):
-                    item_dict[LI_DESCRIPTION_FIELD_NAME] = \
-                        stripped_line[len(known_prefixes[LI_DESCRIPTION_FIELD_NAME]):].strip()
-            self.line_items.append(item_dict)
-        return None
+                invoice_item = InvoiceItem()
+                quanity_raw = item.fields.get(LI_QUANTITY_FIELD_NAME)
+                if quanity_raw is not None and isinstance(quanity_raw, SimpleField) \
+                        and quanity_raw.value is not None and isinstance(quanity_raw.value, float):
+                    invoice_item.quantity = int(quanity_raw.value)
+                unit_price_raw = item.fields.get(LI_UNIT_PRICE_FIELD_NAME)
+                if unit_price_raw is not None and isinstance(unit_price_raw, SimpleField) \
+                        and unit_price_raw.value is not None and isinstance(unit_price_raw.value, float):
+                    invoice_item.unit_price = unit_price_raw.value
+                description_raw = item.fields.get(LI_DESCRIPTION_FIELD_NAME)
+                if description_raw is not None and isinstance(description_raw, SimpleField) \
+                        and description_raw.value is not None and isinstance(description_raw.value, str):
+                    invoice_item.description = description_raw.value
+                if invoice_item.quantity is not None or invoice_item.unit_price is not None \
+                        or invoice_item.description is not None:
+                    self.line_items.append(invoice_item)
+        else:
+            self.line_items = None
 
-    def print_data(self):
+    def print_invoice_data(self):
         print(f"{DATE_FIELD_NAME}: {self.date}")
         print(f"{VAT_AMOUNT_FIELD_NAME}: {self.vat_amount}")
         print(f"{VENDOR_NAME_FIELD_NAME}: {self.vendor_name}")
         print(f"{TOTAL_AMOUNT_FIELD_NAME}: {self.total_amount}")
         print(f"{INVOICE_NUMBER_FIELD_NAME}: {self.invoice_number}")
+        print(f"{TOTAL_AMOUNT_WITHOUT_VAT_FIELD_NAME}: {self.total_amount_without_vat}")
         if self.line_items is not None:
             for item in self.line_items:
-                if LI_QUANTITY_FIELD_NAME in item.keys():
-                    print(f"\n{LI_QUANTITY_FIELD_NAME}: {item[LI_QUANTITY_FIELD_NAME]}")
-                if LI_UNIT_PRICE_FIELD_NAME in item.keys():
-                    print(f"{LI_UNIT_PRICE_FIELD_NAME}: {item[LI_UNIT_PRICE_FIELD_NAME]}")
-                if LI_DESCRIPTION_FIELD_NAME in item.keys():
-                    print(f"{LI_DESCRIPTION_FIELD_NAME}: {item[LI_DESCRIPTION_FIELD_NAME]}")
+                print(f"\n{LI_QUANTITY_FIELD_NAME}: {item.quantity}")
+                print(f"{LI_UNIT_PRICE_FIELD_NAME}: {item.unit_price}")
+                print(f"{LI_DESCRIPTION_FIELD_NAME}: {item.description}")
+
 
 def get_configuration() -> tuple[str, str]:
     with open(API_CONF_PATH, "r") as config_file:
         config = json.load(config_file)
     return config[API_CONF_API_KEY], config[API_CONF_MODEL_ID]
+
 
 if __name__ == '__main__':
 
@@ -85,7 +140,7 @@ if __name__ == '__main__':
     api_key, model_id = get_configuration()
 
     # initialize a new mindee client
-    mindee_client: ClientV2 = ClientV2(api_key)
+    mindee_client = ClientV2(api_key)
 
     # set inference parameters
     params = InferenceParameters(
@@ -117,8 +172,7 @@ if __name__ == '__main__':
     response = mindee_client.enqueue_and_get_inference(input_source, params)
 
     # create invoice class instance (sets all fields in __init__ method)
-    invoice: Invoice = Invoice(response)
+    invoice = Invoice(response)
 
     # print retrieved data
-    invoice.print_data()
-
+    invoice.print_invoice_data()
