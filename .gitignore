@@ -4,3 +4,5 @@
 # Config
 *mindee_api_config.json
 
+# python
+*__pycache__/
