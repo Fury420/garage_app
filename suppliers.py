@@ -1,5 +1,5 @@
+from backend import helper_functions
 
-import helper_functions
 
 #inserts row into table suppliers
 def insert():

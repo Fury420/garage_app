@@ -1,1 +1,1 @@
-mindee
+mindee, psycopg2

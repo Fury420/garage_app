@@ -11,7 +11,8 @@ def create():
     return '''CREATE TABLE IF NOT EXISTS bills (id INT PRIMARY KEY, 
                                                 supplier VARCHAR(40), 
                                                 price REAL, 
-                                                date VARCHAR(40))'''
+                                                date DATE)'''
+
 
 
 #deletes from table bills

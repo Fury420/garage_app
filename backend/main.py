@@ -1,17 +1,28 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+from pathlib import Path
+from mindee.error import MindeeError
+from mindee_demo import Invoice, InvoiceItem, get_configuration
+from mindee import ClientV2, InferenceParameters, PollingOptions
+from dat import database
+import mindee_demo
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi("hi")
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
-#jebem ti mamku
+    api_key, model_id = get_configuration()
+    client = ClientV2(api_key)
+    params = InferenceParameters(
+        model_id=model_id,
+        rag=True,
+        alias=None,
+        webhook_ids=None,
+        polling_options=PollingOptions(initial_delay_sec=1, delay_sec=1, max_retries=50),
+        close_file=True)
+    input_source = client.source_from_path(input_path=Path(mindee_demo.TEST_INVOICE_PATH), fix_pdf=False)
+    try:
+        response = client.enqueue_and_get_inference(input_source=input_source, params=params)
+        invoice = Invoice(response)
+        invoice.print_invoice_data()
+        database(invoice)
+    except MindeeError:
+        print("Mindee Error")
+

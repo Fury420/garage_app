@@ -1,5 +1,3 @@
-import bills
-
 def get_column_value(cursor, query):
     if not query:
         return None
