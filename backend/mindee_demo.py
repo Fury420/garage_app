@@ -2,6 +2,8 @@ from mindee import ClientV2, InferenceParameters, InferenceResponse
 from mindee.parsing.v2.field.simple_field import SimpleField
 from mindee.parsing.v2.field.list_field import ListField
 from mindee.parsing.v2.field.object_field import ObjectField
+from mindee.input.polling_options import PollingOptions
+from mindee.error.mindee_error import MindeeError
 from pathlib import Path
 from datetime import date
 from typing import Union
@@ -136,25 +138,32 @@ def get_configuration() -> tuple[str, str]:
 
 if __name__ == '__main__':
 
-    # configuration
+    # retrieve api_key, model_id from .json config file
     api_key, model_id = get_configuration()
 
-    # initialize a new mindee client
-    mindee_client = ClientV2(api_key)
+    # create a mindee client instance that will send POST using mindee library
+    # if an enviromental variable <MINDEE_V2_API_KEY> is set we can call ClientV2() instead
+    client = ClientV2(api_key=api_key)
 
-    # set inference parameters
+    # create parameters for sending POST request
+    # model_id:         ID of mindee model [required]
+    # rag:              Enable / Disable Retrieval-Augmented Generation [False by default]
+    # alias:            An alias to link the file to your own DB [Optional]
+    # webhook_ids:      IDs of webhooks to propagate the API response to [Optional]
+    # polling_options:  Options for asynchronous polling [PollingOptions(2, 1.5, 80) by default]
+    # close_file:       Whether to close the file after parsing [True by default]
     params = InferenceParameters(
         model_id=model_id,
-        rag=False,
+        rag=True,
         alias=None,
         webhook_ids=None,
-        polling_options=None,
+        polling_options=PollingOptions(initial_delay_sec=1, delay_sec=1, max_retries=50),
         close_file=True)
 
-    # load file from disk to mindee client instance
-    input_source = mindee_client.source_from_path(
-        input_path=Path(TEST_INVOICE_PATH),
-        fix_pdf=False)
+    # load a document from a path
+    # input_path:   Path of file to open [required]
+    # fix_pdf:      Whether to attempt fixing PDF files before sending [False by default]
+    input_source = client.source_from_path(input_path=Path(TEST_INVOICE_PATH), fix_pdf=False)
 
     # compression for pdfs
     # input_source.compress(quality=85)
@@ -168,11 +177,22 @@ if __name__ == '__main__':
     # compression for images:
     # input_source.compress(quality=85, max_width=1920, max_height=1080)
 
-    # send file for processing, get a response
-    response = mindee_client.enqueue_and_get_inference(input_source, params)
+    try:
+        # enqueue to an asynchronous endpoint and automatically poll for a response
+        # input_source: The document/source file to use
+        # params:       Parameters to set when sending a file
+        response = client.enqueue_and_get_inference(input_source=input_source, params=params)
 
-    # create invoice class instance (sets all fields in __init__ method)
-    invoice = Invoice(response)
+        # create invoice class instance (sets all fields in __init__ method)
+        invoice = Invoice(response)
 
-    # print retrieved data
-    invoice.print_invoice_data()
+        # print retrieved data
+        invoice.print_invoice_data()
+
+    except MindeeError:
+        # Invalid input source, parsing failed or couldn't retrieve document after <max_retries> retries
+        pass
+
+    # here we can reuse the same client to send another POST request
+    # input_source = client.source_from_path(...)
+    # response = client.enqueue_and_get_inference(...)
