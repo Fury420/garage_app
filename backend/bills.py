@@ -14,7 +14,6 @@ def create():
                                                 date DATE)'''
 
 
-
 #deletes from table bills
 def delete(id):
     return f'''DELETE FROM bills WHERE id = {id}'''
