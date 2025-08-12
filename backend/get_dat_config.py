@@ -23,7 +23,7 @@ class Config:
         self.password = None
         self.port = None
 
-def get_config():
+def get_config() -> Config:
     data = Config()
     with open(DATABASE_CONFIG_PATH, "r") as config_file:
         config = json.load(config_file)

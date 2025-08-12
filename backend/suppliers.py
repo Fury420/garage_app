@@ -33,3 +33,30 @@ def get_column(cursor, supplier, column):
         return None
     query = f'''SELECT {column} FROM bills WHERE supplier = {supplier}'''
     return helper_functions.get_column_value(cursor, query)
+
+def exist(cursor, supplier) -> bool:
+    query = f'''SELECT * FROM suppliers WHERE supplier = %s
+    )'''
+    cursor.execute(query, (supplier,))
+    row = cursor.fetchone()  # either a row or None
+
+    if row is None:
+        print("Not in the table.")
+    else:
+        print("Found:", row)
+
+    return row is not None
+
+
+def count_price(x: int, cursor, supplier) -> bool:
+    if exist(cursor, supplier):
+        count = get_column(cursor, supplier, 'price')
+        if count is None:
+            return False
+        count += x
+        query = f'''UPDATE suppliers SET price = {count} WHERE supplier = {supplier}'''
+        cursor.execute(query)
+        return True
+
+    cursor.execute(create())
+    return True

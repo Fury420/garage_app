@@ -2,13 +2,13 @@ import helper_functions
 
 #inserts row into the table bills
 def insert():
-    return f'''INSERT INTO bills (id, supplier, price, date)
-                VALUES (%s, %s, %s, %s);'''
+    return f'''INSERT INTO bills (supplier, price, date)
+                VALUES (%s, %s, %s);'''
 
 
 #creates new table bills with columns: id, supplier, price, date
 def create():
-    return '''CREATE TABLE IF NOT EXISTS bills (id INT PRIMARY KEY, 
+    return '''CREATE TABLE IF NOT EXISTS bills (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
                                                 supplier VARCHAR(40), 
                                                 price REAL, 
                                                 date DATE)'''

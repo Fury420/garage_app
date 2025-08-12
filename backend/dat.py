@@ -30,10 +30,10 @@ def database(invoice):
         cursor = connect.cursor()
 
 
-        #cursor.execute(bills.create())
-        #connect.commit()
+        cursor.execute(bills.create())
+        connect.commit()
 
-        cursor.execute(bills.insert(), (3, invoice.vendor_name, invoice.total_amount_without_vat, invoice.date))
+        cursor.execute(bills.insert(), (invoice.vendor_name, invoice.total_amount_without_vat, invoice.date))
         connect.commit()
 
         #cursor.execute(bills.insert(), (2, 'Frantisek', 29.99, '18.9.2008') )
