@@ -1,6 +1,6 @@
 import psycopg2
-import bills
-import suppliers
+import dat_bills
+import dat_suppliers
 import get_dat_config as config
 
 DATABASE_CONFIG_PATH = "./database_configuration.json"

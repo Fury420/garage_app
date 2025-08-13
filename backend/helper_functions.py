@@ -1,5 +1,6 @@
 from psycopg2._psycopg import cursor, connection, Error, Warning
-from employee import Employee
+from class_employee import Employee
+from class_income import Income
 
 def get_column_value(db_cursor: cursor, query, column: str, id: int) \
                                             -> int | float | str | None:
@@ -25,5 +26,13 @@ def employee_check(employee: Employee) -> bool:
     if employee.salary is None:
         return False
     if employee.status is None:
+        return False
+    return True
+
+
+def income_check(income: Income) -> bool:
+    if income.amount is None:
+        return False
+    if income.date is None:
         return False
     return True

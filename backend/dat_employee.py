@@ -1,6 +1,6 @@
 import helper_functions
 from psycopg2._psycopg import cursor, connection, Error, Warning
-from employee import Employee
+from class_employee import Employee
 from psycopg2 import sql
 
 INSERT_QUERY = f'''INSERT INTO employee (name, surname, salary, status)
@@ -46,10 +46,10 @@ def create(db_cursor: cursor) -> bool:
 
 
 #deletes from table employee
-def delete(db_cursor: cursor) -> bool:
+def delete(db_cursor: cursor, employee: Employee) -> bool:
     try:
         query = DELETE_QUERY
-        db_cursor.execute(query)
+        db_cursor.execute(query, (employee.id,))
     except Warning as e:
         print(e.__class__.__name__)
         return False

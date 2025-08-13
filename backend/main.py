@@ -2,7 +2,7 @@ from pathlib import Path
 from mindee.error import MindeeError
 from mindee_api import get_client_and_params, TEST_INVOICE_PATH
 from invoice import Invoice
-from dat import database
+from database_connect import database
 
 
 if __name__ == '__main__':
