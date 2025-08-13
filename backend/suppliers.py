@@ -59,7 +59,7 @@ def delete(db_cursor:cursor, supp: str) -> bool:
 
 
 #returns the whole row of table suppliers where the id matches
-def select(db_cursor: cursor, supp: str) -> Tuple[Any, Any]:
+def select(db_cursor: cursor, supp: str) -> tuple[...] | None:
     try:
         query = SELECT_ALL_QUERY
         db_cursor.execute(query, (supp))
@@ -69,7 +69,7 @@ def select(db_cursor: cursor, supp: str) -> Tuple[Any, Any]:
     except Error as e:
         print(f"{e.__class__.__name__} : {e.pgerror}")
         return False
-    return True
+    return
 
 
 #return a specific value from suppliers

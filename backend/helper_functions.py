@@ -1,4 +1,5 @@
 from psycopg2._psycopg import cursor, connection, Error, Warning
+from employee import Employee
 
 def get_column_value(db_cursor: cursor, query, column: str, id: int) \
                                             -> int | float | str | None:
@@ -14,3 +15,15 @@ def get_column_value(db_cursor: cursor, query, column: str, id: int) \
         print(f"{e.__class__.__name__} : {e.pgerror}")
         return None
     return row[0] if row else None
+
+
+def employee_check(employee: Employee) -> bool:
+    if employee.name is None:
+        return False
+    if employee.surname is None:
+        return False
+    if employee.salary is None:
+        return False
+    if employee.status is None:
+        return False
+    return True
