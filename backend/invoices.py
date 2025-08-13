@@ -1,4 +1,4 @@
-from mindee_demo import Invoice
+from invoice import Invoice
 from psycopg2._psycopg import cursor, connection, Error, Warning
 from typing import Tuple, Any
 
