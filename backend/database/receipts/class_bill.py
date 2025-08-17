@@ -19,14 +19,18 @@ LI_DESCRIPTION_FIELD_NAME = "description"
 @dataclass
 class BillItem:
 
+    id: Union[int, None]
     quantity: Union[int, None]
     unit_price: Union[float, None]
     description: Union[str, None]
+    status: str
 
     def __init__(self):
+        self.id = None
         self.quantity = None
         self.unit_price = None
         self.description = None
+        self.status = 'Bill'
 
 
 

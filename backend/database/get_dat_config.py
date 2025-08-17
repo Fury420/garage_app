@@ -1,7 +1,7 @@
 import json
 from typing import Union
 
-DATABASE_CONFIG_PATH = "./database_config.json"
+DATABASE_CONFIG_PATH = "database_config.json"
 DATABASE_CONFIG_HOSTNAME = "hostname"
 DATABASE_CONFIG_DATABASENAME="database"
 DATABASE_CONFIG_USERNAME = "user"

@@ -1,6 +1,6 @@
-import helper_functions
-from class_income import Income
-from psycopg2._psycopg import cursor, connection, Error, Warning
+from backend.database import helper_functions
+from backend.database.income.class_income import Income
+from psycopg2._psycopg import cursor, Error, Warning
 
 INSERT_QUERY = f'''INSERT INTO income (amount, date)
                 VALUES (%s, %s);'''

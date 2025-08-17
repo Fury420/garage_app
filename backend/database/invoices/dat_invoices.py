@@ -1,4 +1,4 @@
-from class_invoice import Invoice
+from backend.database.invoices.class_invoice import Invoice
 from psycopg2._psycopg import cursor, connection, Error, Warning
 from typing import Tuple, Any
 

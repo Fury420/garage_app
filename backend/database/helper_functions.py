@@ -1,6 +1,6 @@
-from psycopg2._psycopg import cursor, connection, Error, Warning
-from class_employee import Employee
-from class_income import Income
+from psycopg2._psycopg import cursor, Error, Warning
+from backend.database.employee.class_employee import Employee
+from backend.database.income.class_income import Income
 
 def get_column_value(db_cursor: cursor, query, column: str, id: int) \
                                             -> int | float | str | None:

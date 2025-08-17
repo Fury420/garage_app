@@ -1,5 +1,5 @@
-from backend import helper_functions
-from psycopg2._psycopg import cursor, connection, Error, Warning
+from backend.database import helper_functions
+from psycopg2._psycopg import cursor, Error, Warning
 
 INSERT_QUERY = '''INSERT INTO suppliers 
                 (supplier, description, address) VALUES (%s, %s, %s);'''

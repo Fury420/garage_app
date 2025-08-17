@@ -1,6 +1,6 @@
 from mindee import ClientV2, InferenceParameters
 from mindee.error.mindee_error import MindeeError
-from class_invoice import Invoice
+from backend.database.invoices.class_invoice import Invoice
 from pathlib import Path
 from typing import Tuple
 import json

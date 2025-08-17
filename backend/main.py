@@ -1,8 +1,8 @@
 from pathlib import Path
 from mindee.error import MindeeError
 from mindee_api import get_client_and_params, TEST_INVOICE_PATH
-from class_invoice import Invoice
-from database_connect import database
+from backend.database.invoices.class_invoice import Invoice
+from backend.database.database_connect import database
 
 
 if __name__ == '__main__':

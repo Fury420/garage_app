@@ -26,14 +26,18 @@ class InvoiceItem:
     Represents an Invoice Item.
     """
 
+    id : Union[int, None]
     quantity: Union[int, None]
     unit_price: Union[float, None]
     description: Union[str, None]
+    status: str
 
     def __init__(self):
+        self.id = None
         self.quantity = None
         self.unit_price = None
         self.description = None
+        self.status = 'Invoice'
 
 
 @dataclass

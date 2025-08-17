@@ -1,5 +1,5 @@
 from typing import Union
-import helper_functions
+from backend.database import helper_functions
 from psycopg2._psycopg import cursor, connection, Error, Warning
 
 

@@ -1,6 +1,6 @@
-import helper_functions
-from psycopg2._psycopg import cursor, connection, Error, Warning
-from class_employee import Employee
+from backend.database import helper_functions
+from psycopg2._psycopg import cursor, Error, Warning
+from backend.database.employee.class_employee import Employee
 from psycopg2 import sql
 
 INSERT_QUERY = f'''INSERT INTO employee (name, surname, salary, status)
