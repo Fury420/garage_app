@@ -6,13 +6,13 @@ from psycopg2 import sql
 INSERT_QUERY = f'''INSERT INTO employee (name, surname, salary, status)
                 VALUES (%s, %s, %s, %s);'''
 
-CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS bills (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
+CREATE_QUERY = '''CREATE TABLE IF NOT EXISTS employee (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
                                                     name VARCHAR(20), 
                                                     surname VARCHAR(30), 
                                                     salary FLOAT, 
                                                     status INT)'''
 
-DELETE_QUERY = f'''DELETE FROM bills WHERE id = %s;'''
+DELETE_QUERY = f'''DELETE FROM employee WHERE id = %s;'''
 
 SELECT_QUERY = f'''SELECT * FROM employee WHERE id = %s'''
 
