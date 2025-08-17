@@ -1,11 +1,13 @@
 from typing import Union, Any, Dict
 from datetime import date
+from dataclasses import dataclass
+
 
 ID_FIELD_NAME = "id"
 AMOUNT_FIELD_NAME = "amount"
 DATE_FIELD_NAME = "date"
 
-
+@dataclass
 class Income:
 
     id: Union[int, None]

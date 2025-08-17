@@ -4,6 +4,7 @@ from mindee.parsing.v2.field.list_field import ListField
 from mindee.parsing.v2.field.object_field import ObjectField
 from datetime import date
 from typing import Union, Any, Dict
+from dataclasses import dataclass
 
 
 DATE_FIELD_NAME = "date"
@@ -19,6 +20,7 @@ LI_ITEM_SEPARATOR = '*'
 LI_ITEM_TAG_SEPARATOR = ':'
 
 
+@dataclass
 class InvoiceItem:
     """
     Represents an Invoice Item.
@@ -34,6 +36,7 @@ class InvoiceItem:
         self.description = None
 
 
+@dataclass
 class Invoice:
     """
     Represents an Invoice.

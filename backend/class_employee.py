@@ -1,4 +1,5 @@
 from typing import Union, Any, Dict
+from dataclasses import dataclass
 
 ID_FIELD_NAME = 'id'
 NAME_FIELD_NAME = 'name'
@@ -6,7 +7,7 @@ SURNAME_FIELD_NAME = 'surname'
 SALARY_FIELD_NAME = 'salary'
 STATUS_FIELD_NAME = 'status'
 
-
+@dataclass
 class Employee:
 
     id: Union[int, None]
