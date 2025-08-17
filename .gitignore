@@ -3,6 +3,7 @@
 
 # Config
 *mindee_api_config.json
+*aws_credentials.json
 
 # python
 *__pycache__/

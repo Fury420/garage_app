@@ -1,1 +1,1 @@
-mindee, psycopg2
+mindee, psycopg2, boto3, pdf2image, pillow
