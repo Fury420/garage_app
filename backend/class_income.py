@@ -1,6 +1,10 @@
 from typing import Union, Any, Dict
 from datetime import date
 
+ID_FIELD_NAME = "id"
+AMOUNT_FIELD_NAME = "amount"
+DATE_FIELD_NAME = "date"
+
 
 class Income:
 
@@ -12,3 +16,10 @@ class Income:
         self.id = None
         self.amount = None
         self.date = None
+
+    def to_json_serializable(self) -> Dict[str, Any]:
+        return {
+            ID_FIELD_NAME: self.id,
+            AMOUNT_FIELD_NAME: self.amount,
+            DATE_FIELD_NAME: self.date
+        }
