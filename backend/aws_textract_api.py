@@ -1,7 +1,7 @@
-import base64
-import datetime
-import io
 from boto3 import client
+from base64 import b64encode
+from io import BytesIO
+from datetime import datetime
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError
 from PIL import Image
@@ -14,10 +14,15 @@ AWS_SECRET_ACCESS_KEY = "aws_secret_access_key"
 AWS_DEFAULT_REGION = "aws_default_region"
 AWS_TEXTRACT_SERVICE = "textract"
 
+MAX_IMAGE_SIZE = 5242880    # 5MB
+
 TEST_INVOICE_PATH = "./test_data/vlcie_sirupy.jpg"
 
 
 def get_textract_client() -> client:
+    """
+    Creates a boto3.client instance using configuration in file specified by AWS_CREDENTIALS_FILE
+    """
     try:
         with open(AWS_CREDENTIALS_FILE, "r") as credentials_file:
             credentials = json.load(credentials_file)
@@ -38,53 +43,63 @@ def get_textract_client() -> client:
         )
     )
 
-def convert_and_compress(file_bytes: bytes, mime: str) -> bytes | None:
-    if mime == "application/pdf":
+
+def convert_and_compress(file_bytes: bytes, is_pdf: bool=False, pdf_page: int=1) -> bytes | None:
+    """
+    Converts PDF or image document to compressed JPEG image. If there is any issue with
+    converting given document or final compressed document is larger than MAX_IMAGE_SIZE,
+    method prints the exception to stdout and returns None.
+    :param file_bytes: binary representation of PDF or image document
+    :param is_pdf: specifies whether document is in PDF format
+    :param pdf_page: specifies which PDF page we want to convert and compress
+    :return: JPEG image in binary representation
+    """
+    # TODO: split method to image and pdf compression (we know content type from upload file)
+    if is_pdf:
         try:
             images = convert_from_bytes(
                 file_bytes,
-                first_page=1,
-                last_page=1,
+                first_page=pdf_page,
+                last_page=pdf_page,
                 dpi=200,
                 fmt="jpeg"
             )
             if not images:
                 raise ValueError("PDF conversion failed")
-            pil_image = images[0]
+            pil_image = images[pdf_page - 1]
         except Exception as e:
             print(f"{e.__class__.__name__} : {e.args}")
             return None
     else:
         try:
-            pil_image = Image.open(io.BytesIO(file_bytes))
+            pil_image = Image.open(BytesIO(file_bytes))
             if pil_image.mode in ("RGBA", "P", "LA"):
                 pil_image = pil_image.convert("RGB")
         except Exception as e:
             print(f"{e.__class__.__name__} : {e.args}")
             return None
     pil_image.thumbnail((1080, 1920), Image.Resampling.LANCZOS)
-    out_buffer = io.BytesIO()
+    out_buffer = BytesIO()
     pil_image.save(out_buffer, format="JPEG", quality=85)
-    # TODO should be less than 5MB, but check just to be sure
+    print(out_buffer.getbuffer().nbytes)
+    if out_buffer.getbuffer().nbytes >= MAX_IMAGE_SIZE:
+        return None
     return out_buffer.getvalue()
 
 
-def test_run():
+def test_run() -> None:
+    """
+     Sends test request to textract service.
+    """
     textract_client = get_textract_client()
     try:
-        with Image.open(TEST_INVOICE_PATH, "r") as pil_image:
-            pil_image.convert("RGB")
-            output_buffer = io.BytesIO()
-            pil_image.save(output_buffer, format="JPEG", quality=85)
-        jpeg_bytes = output_buffer.getvalue()
+        with open(TEST_INVOICE_PATH, "rb") as test_file:
+            jpeg_bytes = convert_and_compress(test_file.read())
         response = textract_client.analyze_expense(
             Document={
-                "Bytes": base64.b64encode(jpeg_bytes).decode('utf-8')
+                "Bytes": b64encode(jpeg_bytes).decode('utf-8')
             }
         )
-        # A blob of base64-encoded document bytes.
-        # The maximum size of a document that’s provided in a blob of bytes is 5 MB.
-        # The document bytes must be in PNG or JPEG format.
         with open("./test_run_out.json", "w") as out_file:
             json.dump(response, out_file)
     except OSError as e:
@@ -96,15 +111,14 @@ def test_run():
 if __name__ == '__main__':
     """
     test_run()
-    
+    """
     try:
         with open("./test_data/vlcie_sirupy.pdf", "rb") as in_file:
             filebytes = in_file.read()
-        compressed_file = convert_and_compress(filebytes, "application/pdf")
+        compressed_file = convert_and_compress(filebytes, is_pdf=True)
         if compressed_file is None:
             raise ValueError("Compression failed")
-        with open(f"./compression_out_{datetime.datetime.now().time().isoformat()}.jpeg", "wb") as out_file:
+        with open(f"./compression_out_{datetime.now().time().isoformat()}.jpeg", "wb") as out_file:
             out_file.write(compressed_file)
     except OSError as e:
         print(f"{e.__class__.__name__} : {e.args}")
-    """
