@@ -54,7 +54,7 @@ def pdf_to_jpeg(document_bytes: bytes) -> list[bytes] | None:
     :return: Compressed JPEG images in binary representation
     """
     pdf_reader = PdfReader(BytesIO(document_bytes))
-    page_count = pdf_reader.getNumPages()
+    page_count = len(pdf_reader.pages)
     try:
         images = convert_from_bytes(
             document_bytes,
@@ -128,6 +128,66 @@ def test_run() -> None:
     except OSError as e:
         print(f"{e.__class__.__name__} : {e.args}")
     except BotoCoreError as e:
+        print(f"{e.__class__.__name__} : {e.args}")
+
+
+def run_tests() -> None:
+    print("test multi-page PDF document")
+    try:
+        with open("../test_api_dir/test_data/homegym.pdf", "rb") as test_file:
+            images = pdf_to_jpeg(test_file.read())
+            for image_bytes in images:
+                with open(f"../test_api_dir/test_out/homegym{datetime.now().isoformat()}.jpeg", "wb") as test_out_file:
+                    test_out_file.write(image_bytes)
+                    test_out_file.flush()
+        print("OK")
+    except Exception as e:
+        print(f"{e.__class__.__name__} : {e.args}")
+
+    print("test single page PDF document")
+    try:
+        with open("../test_api_dir/test_data/martinus.pdf", "rb") as test_file:
+            images = pdf_to_jpeg(test_file.read())
+            for image_bytes in images:
+                with open(f"../test_api_dir/test_out/martinus{datetime.now().isoformat()}.jpeg", "wb") as test_out_file:
+                    test_out_file.write(image_bytes)
+                    test_out_file.flush()
+        print("OK")
+    except Exception as e:
+        print(f"{e.__class__.__name__} : {e.args}")
+
+    print("test image converted to PDF")
+    try:
+        with open("../test_api_dir/test_data/vlcie_sirupy.pdf", "rb") as test_file:
+            images = pdf_to_jpeg(test_file.read())
+            for image_bytes in images:
+                with open(f"../test_api_dir/test_out/vlcie_sirupy{datetime.now().isoformat()}.jpeg", "wb") as test_out_file:
+                    test_out_file.write(image_bytes)
+                    test_out_file.flush()
+        print("OK")
+    except Exception as e:
+        print(f"{e.__class__.__name__} : {e.args}")
+
+    print("test PNG image")
+    try:
+        with open("../test_api_dir/test_data/scio_image.png", "rb") as test_file:
+            image_bytes = compress_image(test_file.read())
+            with open(f"../test_api_dir/test_out/scio_image{datetime.now().isoformat()}.jpeg", "wb") as test_out_file:
+                test_out_file.write(image_bytes)
+                test_out_file.flush()
+        print("OK")
+    except Exception as e:
+        print(f"{e.__class__.__name__} : {e.args}")
+
+    print("test JPG image")
+    try:
+        with open("../test_api_dir/test_data/vlcie_sirupy.jpg", "rb") as test_file:
+            image_bytes = compress_image(test_file.read())
+            with open(f"../test_api_dir/test_out/vlcie_sirupy_image{datetime.now().isoformat()}.jpeg","wb") as test_out_file:
+                test_out_file.write(image_bytes)
+                test_out_file.flush()
+        print("OK")
+    except Exception as e:
         print(f"{e.__class__.__name__} : {e.args}")
 
 
