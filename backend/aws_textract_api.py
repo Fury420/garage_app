@@ -404,7 +404,36 @@ def print_invoice_data(invoice: Invoice) -> None:
     """
     Prints all data present in given Invoice dataclass instance.
     """
-    pass  # TODO
+    print("Invoice Data:")
+    print(f"Invoice number:\t{invoice.invoice_number}")
+    print(f"Invoide date:\t{invoice.invoice_date.isoformat()}")
+    print(f"Vendor name:\t{invoice.vendor_name}")
+    print(f"Vendor ICO:\t{invoice.vendor_ico}")
+    print(f"Vendor DIC:\t{invoice.vendor_dic}")
+    print(f"Sub-Total:\t{invoice.sub_total}")
+    print(f"Total:\t{invoice.total}")
+    print(f"Currency:\t{invoice.currency}")
+    if invoice.due_date is not None:
+        print(f"Due Date:\t{invoice.due_date}")
+    if invoice.vendor_address is not None:
+        print(f"Vendor Address:\t{invoice.vendor_address}")
+    if invoice.vendor_bank_account is not None:
+        print(f"Vendor Bank Account:\t{invoice.vendor_bank_account}")
+    if invoice.payment_method is not None:
+        print(f"Payment Method:\t{invoice.payment_method}")
+    print("Invoice Items:")
+    for item in invoice.items:
+        print()
+        print(f"\tName:\t{item.name}")
+        print(f"\tQuantity:\t{item.quantity}")
+        print(f"\tUnit Price:\t{item.unit_price}")
+        print(f"\tTotal Price:\t{item.total_price}")
+        if item.vat_rate is not None:
+            print(f"\tVAT Rate:\t{item.vat_rate}")
+        if item.vat_amount is not None:
+            print(f"\tVAT Amount:\t{item.vat_amount}")
+        if item.unit_of_measure is not None:
+            print(f"\tUnit Of Measure:\t{item.unit_of_measure}")
 
 
 def run_tests() -> None:
