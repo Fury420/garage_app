@@ -116,7 +116,7 @@ def compress_image(image: Union[Image.Image | bytes]) -> bytes | None:
 def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
     """
     Creates Invoice class instance using given textract client response. If method fails
-    to retrieve any of the attributes required by the Invoice class from given response,
+    to retrieve any of the attributes required by the Invoice dataclass from given response,
     it returns None.
     :param response: valid Textract client response
     :return: Invoice class instance
@@ -125,7 +125,7 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
     if not isinstance(expense_documents, list) or len(expense_documents) < 1 or \
             not isinstance(expense_documents[0], dict):
         raise ValueError("ExpenseDocuments field missing, empty or in invalid format")
-    expense_document = expense_documents[0]  # method expects only one document
+    expense_document = expense_documents[0]  # method expects one expense document
     summary_fields = expense_document.get("SummaryFields")
     if not isinstance(summary_fields, list) or len(summary_fields) < 1:
         raise ValueError("SummaryFields field missing, empty or in invalid format")
@@ -197,7 +197,7 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
     )
     if len(matches) != 1:
         raise ValueError("Sub-total missing or in invalid format")
-    sub_total = Decimal(matches[0])  # should not throw (defaults to 0.0 instead)
+    sub_total = Decimal(matches[0].replace(',', '.', 1))
     total = get_standard_field_value(
         summary_fields,
         "TOTAL",
@@ -205,27 +205,104 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
             r'celkova.*cena',
             r'cena.*s.*dph'
             r'celkovo.*s.*dph'
-        ]  # # maybe use [ \t\n\r\f\v]+ instead of .* to be more strict
+        ]  # maybe use [ \t\n\r\f\v]+ instead of .* to be more strict
     )
     if total is None:
         raise ValueError("Total missing or in invalid format")
-    # '32.51' or '32,51' pattern (at least one decimal digit before and after the '.' / ',' symbols)
     matches = findall(
         pattern=r'[0-9]+[.,][0-9]+',
         string=total,
         flags=IGNORECASE | DOTALL
     )
-    if len(matches) != 1:
+    if len(matches) != 1 or not isinstance(matches[0], str):
         raise ValueError("Total missing or in invalid format")
-    total = Decimal(matches[0].strip())  # should not throw (defaults to 0.0 instead)
+    total = Decimal(matches[0].replace(',', '.', 1))
     invoice = Invoice(invoice_number, invoice_date, vendor_name, vendor_ico, vendor_dic, sub_total, total)
-    #  TODO fill Invoice with invoice items and other optional data
+    #  TODO fill Invoice with optional data
+    line_item_groups = expense_document.get("LineItemGroups")
+    if not isinstance(line_item_groups, list) or len(line_item_groups) < 1 or \
+            not isinstance(line_item_groups[0], dict):
+        return invoice  # no line items groups found in the invoice
+    line_items = line_item_groups[0].get("LineItems")  # method expects one line item group
+    if isinstance(line_items, list):
+        fill_invoice_items(invoice, line_items)
     return invoice
+
+
+def fill_invoice_items(invoice: Invoice, line_items: List[Any]) -> None:
+    """
+    Fills given Invoice dataclass instance attribute items using 'LineItems' from Textract client response.
+    If method fails to retrieve any of the attributes required by the InvoiceItem dataclass from given response,
+    it skips the current item and moves to the next.
+    :param invoice: Invoice dataclass instance
+    :param line_items: 'LineItems' field from valid Textract client response
+    """
+    for line_item in line_items:
+        if not isinstance(line_item, dict):
+            continue
+        line_item_expense_fields = line_item.get("LineItemExpenseFields")
+        if not isinstance(line_item_expense_fields, list):
+            continue
+        name = get_standard_field_value(
+            line_item_expense_fields,
+            "ITEM",
+            [
+                r'polozka'
+            ]
+        )
+        if not isinstance(name, str):
+            continue
+        quantity = get_standard_field_value(
+            line_item_expense_fields,
+            "QUANTITY",
+            [
+                r'ks'
+            ]
+        )
+        if not isinstance(quantity, str):
+            continue
+        matches = findall(
+            pattern=r'[0-9]+',
+            string=quantity,
+            flags=IGNORECASE | DOTALL
+        )
+        if len(matches) < 1 or not isinstance(matches[0], str):
+            continue
+        quantity = Decimal(matches[0].replace(',', '.', 1))
+        unit_price = get_standard_field_value(
+            line_item_expense_fields,
+            "UNIT_PRICE",
+            [
+                r'bez.*dph.*ks'
+            ]
+        )
+        if not isinstance(unit_price, str):
+            continue
+        matches = findall(
+            pattern=r'[0-9]+[.,][0-9]+',
+            string=unit_price,
+            flags=IGNORECASE | DOTALL
+        )
+        if len(matches) < 1 or not isinstance(matches[0], str):
+            continue
+        unit_price = Decimal(matches[0].replace(',', '.', 1))
+        invoice.items.append(InvoiceItem(name, quantity, unit_price, quantity * unit_price))
+        # TODO fill InvoiceItem with optional data
 
 
 def get_standard_field_value(
         fields: List[Any], expected_type: str, expected_label_patterns: Optional[List[str]] = None
 ) -> str | None:
+    """
+    Iterates through given fields and looks for standard field value using given expected type
+    and expected label patterns, returns the first occurence that matches type or label pattern.
+    Method expects fields of type List[Dict[str, Dict[str, str]]] (in Textract docs -
+    analyze_expense method - defined as 'SummaryFields' or 'LineItemExpenseFields').
+    :param fields: List[Dict[str, Dict[str, str]]] type list
+    :param expected_type: type to look for in 'Type' field (defined in Textract docs as 'Expense Analysis Standard Fields')
+    :param expected_label_patterns: list of valid python regex strings to look for in 'LabelDetection' field
+    :return: standard field value if found, otherwise None
+    """
     for field in fields:
         if not isinstance(field, dict):
             continue
@@ -268,15 +345,72 @@ def test_run() -> None:
                 "Bytes": payload
             }
         )
+        print_textract_response_raw(response)
         with open(f"./test_run{datetime.now().isoformat()}.json", "w") as out_file:
             json.dump(response, out_file)
+        invoice = create_invoice(response)
+        print_invoice_data(invoice)
     except OSError as e:
         print(f"{e.__class__.__name__} : {e.args}")
     except BotoCoreError as e:
         print(f"{e.__class__.__name__} : {e.args}")
+    except ValueError as e:
+        print(f"{e.__class__.__name__} : {e.args}")
+
+
+def print_textract_response_raw(resp: Dict[Any, Any]) -> None:
+    """
+    Prints following fields from response:\n
+    response["ExpenseDocuments"][0]["SummaryFields"][0..x]["Type"]["Text"]\n
+    response["ExpenseDocuments"][0]["SummaryFields"][0..x]["LabelDetection"]["Text"]\n
+    response["ExpenseDocuments"][0]["SummaryFields"][0..x]["ValueDetection"]["Text"]\n
+    response["ExpenseDocuments"][0]["LineItemGroups"][0]["LineItems"][0..x]["LineItemExpenseFields"][0..x]["Type"]["Text"]\n
+    response["ExpenseDocuments"][0]["LineItemGroups"][0]["LineItems"][0..x]["LineItemExpenseFields"][0..x]["LabelDetection"]["Text"]\n
+    response["ExpenseDocuments"][0]["LineItemGroups"][0]["LineItems"][0..x]["LineItemExpenseFields"][0..x]["ValueDetection"]["Text"]\n
+    """
+    print("textract response\n------------------------------------")
+    print("summary fields:")
+    for summary_field in resp["ExpenseDocuments"][0]["SummaryFields"]:
+        detail = ""
+        if summary_field.get("Type") is not None and summary_field["Type"].get("Text") is not None:
+            detail += f"\'{summary_field["Type"]["Text"]}\'"
+        if summary_field.get("LabelDetection") is not None and summary_field["LabelDetection"].get("Text") is not None:
+            detail += f"\'{summary_field["LabelDetection"]["Text"]}\'" if len(detail) == 0 \
+                else f" : \'{summary_field["LabelDetection"]["Text"]}\'"
+        if summary_field.get("ValueDetection") is not None and summary_field["ValueDetection"].get("Text") is not None:
+            detail += f"\'{summary_field["ValueDetection"]["Text"]}\'" if len(detail) == 0 \
+                else f" : \'{summary_field["ValueDetection"]["Text"]}\'"
+        print(detail)
+    print("------------------------------------\nline items")
+    for line_item in resp["ExpenseDocuments"][0]["LineItemGroups"][0]["LineItems"]:
+        print()
+        for line_item_field in line_item["LineItemExpenseFields"]:
+            detail = ""
+            if line_item_field.get("Type") is not None and line_item_field["Type"].get("Text") is not None:
+                detail += f"\'{line_item_field["Type"]["Text"]}\'"
+            if line_item_field.get("LabelDetection") is not None and \
+                    line_item_field["LabelDetection"].get("Text") is not None:
+                detail += f"\'{line_item_field["LabelDetection"]["Text"]}\'" if len(detail) == 0 \
+                    else f" : \'{line_item_field["LabelDetection"]["Text"]}\'"
+            if line_item_field.get("ValueDetection") is not None and \
+                    line_item_field["ValueDetection"].get("Text") is not None:
+                detail += f"\'{line_item_field["ValueDetection"]["Text"]}\'" if len(detail) == 0 \
+                    else f"\' : {line_item_field["ValueDetection"]["Text"]}\'"
+            print(detail)
+    print("------------------------------------")
+
+
+def print_invoice_data(invoice: Invoice) -> None:
+    """
+    Prints all data present in given Invoice dataclass instance.
+    """
+    pass  # TODO
 
 
 def run_tests() -> None:
+    """
+    Convertion and compression tests.
+    """
     print("test multi-page PDF document")
     try:
         with open("../test_api_dir/test_data/homegym.pdf", "rb") as test_file:
