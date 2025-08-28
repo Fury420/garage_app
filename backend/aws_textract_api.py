@@ -1,5 +1,5 @@
+from decimal import Decimal
 from boto3 import client
-from base64 import b64encode
 from io import BytesIO
 from datetime import datetime
 from botocore.config import Config
@@ -7,7 +7,10 @@ from botocore.exceptions import BotoCoreError
 from PIL import Image
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
-from typing import Union
+from typing import Union, Dict, Any, List, Optional
+from textract_invoice import Invoice, InvoiceItem
+from unidecode import unidecode
+from re import findall, IGNORECASE, DOTALL
 import json
 
 AWS_CREDENTIALS_FILE = "./aws_credentials.json"
@@ -110,6 +113,148 @@ def compress_image(image: Union[Image.Image | bytes]) -> bytes | None:
     return None
 
 
+def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
+    """
+    Creates Invoice class instance using given textract client response. If method fails
+    to retrieve any of the attributes required by the Invoice class from given response,
+    it returns None.
+    :param response: valid Textract client response
+    :return: Invoice class instance
+    """
+    expense_documents = response.get("ExpenseDocuments")
+    if not isinstance(expense_documents, list) or len(expense_documents) < 1 or \
+            not isinstance(expense_documents[0], dict):
+        raise ValueError("ExpenseDocuments field missing, empty or in invalid format")
+    expense_document = expense_documents[0]  # method expects only one document
+    summary_fields = expense_document.get("SummaryFields")
+    if not isinstance(summary_fields, list) or len(summary_fields) < 1:
+        raise ValueError("SummaryFields field missing, empty or in invalid format")
+    invoice_number = get_standard_field_value(
+        summary_fields,
+        "INVOICE_RECEIPT_ID",
+        [
+            r'cislo.*objednavky'
+        ]
+    )
+    if invoice_number is None:
+        raise ValueError("Invoice number missing")
+    invoice_date = get_standard_field_value(
+        summary_fields,
+        "INVOICE_RECEIPT_DATE",
+        [
+            r'datum.*vystavenia'
+        ]
+    )
+    if invoice_date is None:
+        raise ValueError("Invoice date missing")
+    try:
+        invoice_date = datetime.fromisoformat(invoice_date.strip())
+    except ValueError as e:
+        raise ValueError(f"Failed to convert invoice date to datetime format: {e.args}")
+    vendor_name = get_standard_field_value(
+        summary_fields,
+        "VENDOR_NAME",
+        [
+            r'dodavatel'
+        ]
+    )
+    if vendor_name is None:
+        raise ValueError("Vendor name missing")
+    vendor_ico = get_standard_field_value(
+        summary_fields,
+        "TAX_PAYER_ID",
+        [
+            r'ico[:]?'
+        ]
+    )
+    if vendor_ico is None:
+        raise ValueError("Vendor ICO missing")
+    vendor_dic = get_standard_field_value(
+        summary_fields,
+        "VENDOR_VAT_NUMBER",
+        [
+            r'dic[:]?'
+        ]
+    )
+    if vendor_dic is None:
+        raise ValueError("Vendor DIC missing")
+    sub_total = get_standard_field_value(
+        summary_fields,
+        "SUBTOTAL",
+        [
+            r'bez.*dph.*celkovo',
+            r'celkovo.*bez.*dph'
+            r'celkova.*cena.*bez.*dph'
+        ]
+    )
+    if sub_total is None:
+        raise ValueError("Sub-total missing or in invalid format")
+    # '32.51' or '32,51' pattern (at least one decimal digit before and after the '.' / ',' symbols)
+    matches = findall(
+        pattern=r'[0-9]+[.,][0-9]+',
+        string=sub_total,
+        flags=IGNORECASE | DOTALL
+    )
+    if len(matches) != 1:
+        raise ValueError("Sub-total missing or in invalid format")
+    sub_total = Decimal(matches[0])  # should not throw (defaults to 0.0 instead)
+    total = get_standard_field_value(
+        summary_fields,
+        "TOTAL",
+        [
+            r'celkova.*cena',
+            r'cena.*s.*dph'
+            r'celkovo.*s.*dph'
+        ]  # # maybe use [ \t\n\r\f\v]+ instead of .* to be more strict
+    )
+    if total is None:
+        raise ValueError("Total missing or in invalid format")
+    # '32.51' or '32,51' pattern (at least one decimal digit before and after the '.' / ',' symbols)
+    matches = findall(
+        pattern=r'[0-9]+[.,][0-9]+',
+        string=total,
+        flags=IGNORECASE | DOTALL
+    )
+    if len(matches) != 1:
+        raise ValueError("Total missing or in invalid format")
+    total = Decimal(matches[0].strip())  # should not throw (defaults to 0.0 instead)
+    invoice = Invoice(invoice_number, invoice_date, vendor_name, vendor_ico, vendor_dic, sub_total, total)
+    #  TODO fill Invoice with invoice items and other optional data
+    return invoice
+
+
+def get_standard_field_value(
+        fields: List[Any], expected_type: str, expected_label_patterns: Optional[List[str]] = None
+) -> str | None:
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        value_field = field.get("ValueDetection")
+        if not isinstance(value_field, dict) or not isinstance(value_field.get("Text"), str):
+            continue
+        type_field = field.get("Type")
+        if isinstance(type_field, dict):
+            type_field_value = type_field.get("Text")
+            if isinstance(type_field_value, str) and type_field_value == expected_type:
+                return value_field.get("Text")
+            continue
+        label_field = field.get("LabelDetection")
+        if isinstance(label_field, dict):
+            label_field_value = label_field.get("Text")
+            if isinstance(label_field_value, str) and len(label_field_value) > 0:
+                label_field_value_unicode = unidecode(label_field_value)
+                for pattern in expected_label_patterns:
+                    matches = findall(
+                        pattern=pattern,
+                        string=label_field_value_unicode,
+                        flags=IGNORECASE | DOTALL
+                    )
+                    if len(matches) > 0:
+                        return value_field.get("Text")
+    return None
+
+
+
 def test_run() -> None:
     """
      Sends test request to textract service.
@@ -120,7 +265,7 @@ def test_run() -> None:
             payload = compress_image(test_file.read())
         response = textract_client.analyze_expense(
             Document={
-                "Bytes": b64encode(payload).decode('utf-8')
+                "Bytes": payload
             }
         )
         with open(f"./test_run{datetime.now().isoformat()}.json", "w") as out_file:
@@ -239,4 +384,40 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"{e.__class__.__name__} : {e.args}")
         # return appropriate HTTP response to frontend
+    """
+
+    """
+    response : Dict
+    response["DocumentMetadata"] : Dict
+    response["DocumentMetadata"]["Pages"] : int
+    response["ExpenseDocuments"] : List
+    response["ExpenseDocuments"][i] : Dict
+    response["ExpenseDocuments"][i]["SummaryFields"] : List
+    response["ExpenseDocuments"][i]["SummaryFields"][i] : Dict
+    response["ExpenseDocuments"][i]["SummaryFields"][i]["Type"]["Text"] : string
+    response["ExpenseDocuments"][i]["SummaryFields"][i]["LabelDetection"]["Text"] : string
+    response["ExpenseDocuments"][i]["SummaryFields"][i]["ValueDetection"]["Text"] : string
+    response["ExpenseDocuments"][i]["SummaryFields"][i]["PageNumber"] : int
+    response["ExpenseDocuments"][i]["SummaryFields"][i]["Currency"]["Code"] : string
+    response["ExpenseDocuments"][i]["LineItemGroups"] : List
+    response["ExpenseDocuments"][i]["LineItemGroups"][i] : Dict
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"] : List
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i] : Dict
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"] : List
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"][i] : Dict
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"][i]["Type"]["Text"] : string
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"][i]["LabelDetection"]["Text"] : string
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"][i]["ValueDetection"]["Text"] : string
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"][i]["PageNumber"] : int
+    response["ExpenseDocuments"][i]["LineItemGroups"][i]["LineItems"][i]["LineItemExpenseFields"][i]["Currency"]["Code"] : string
+    response["ExpenseDocuments"][i]["Blocks"] : List
+    response["ExpenseDocuments"][i]["Blocks"][i] : Dict
+    response["ExpenseDocuments"][i]["Blocks"][i]["BlockType"] : string
+    response["ExpenseDocuments"][i]["Blocks"][i]["Text"] : string
+    
+    Currency code for detected currency. the current supported codes are:
+    USD, EUR, GBP, CAD, INR, JPY, CHF, AUD, CNY, BZR, SEK, HKD
+    
+    len(response["ExpenseDocuments"]) should be equal to 1
+    len(response["ExpenseDocuments"][i]["LineItemGroups"]) also seems to be equal to 1
     """
