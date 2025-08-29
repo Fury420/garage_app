@@ -133,7 +133,10 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         summary_fields,
         "INVOICE_RECEIPT_ID",
         [
-            r'cislo.*objednavky'
+            r'cislo.*objednavky',
+            r'fakura.*c[.]?',
+            r'objednavka.*c[.]?',
+            r'pokladnicny.*doklad.*c[.]?'
         ]
     )
     if invoice_number is None:
@@ -142,7 +145,9 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         summary_fields,
         "INVOICE_RECEIPT_DATE",
         [
-            r'datum.*vystavenia'
+            r'datum.*vystavenia',
+            r'datum.*vyhotovenia',
+            r'datum.*vystaveni'
         ]
     )
     if invoice_date is None:
@@ -155,7 +160,7 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         summary_fields,
         "VENDOR_NAME",
         [
-            r'dodavatel'
+            r'dodavatel[:]?'
         ]
     )
     if vendor_name is None:
@@ -164,7 +169,8 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         summary_fields,
         "TAX_PAYER_ID",
         [
-            r'ico[:]?'
+            r'ico[:]?',
+            r'ic[:]?'
         ]
     )
     if vendor_ico is None:
@@ -173,7 +179,8 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         summary_fields,
         "VENDOR_VAT_NUMBER",
         [
-            r'dic[:]?'
+            r'dic[:]?',
+            r'ic.*dph[:]?'
         ]
     )
     if vendor_dic is None:
@@ -182,9 +189,9 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         summary_fields,
         "SUBTOTAL",
         [
-            r'bez.*dph.*celkovo',
-            r'celkovo.*bez.*dph'
-            r'celkova.*cena.*bez.*dph'
+            r'zaklad.*pre.*dph',
+            r'soucet.*polozek',
+            r'bez.*dph'
         ]
     )
     if sub_total is None:
@@ -203,8 +210,10 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         "TOTAL",
         [
             r'celkova.*cena',
-            r'cena.*s.*dph'
-            r'celkovo.*s.*dph'
+            r'celkem',
+            r'celkom',
+            r'spolu',
+            r's.*dph'
         ]  # maybe use [ \t\n\r\f\v]+ instead of .* to be more strict
     )
     if total is None:
@@ -247,7 +256,9 @@ def fill_invoice_items(invoice: Invoice, line_items: List[Any]) -> None:
             line_item_expense_fields,
             "ITEM",
             [
-                r'polozka'
+                r'polozka',
+                r'popis',
+                r'oznaceni.*dodavky'
             ]
         )
         if not isinstance(name, str):
@@ -256,7 +267,10 @@ def fill_invoice_items(invoice: Invoice, line_items: List[Any]) -> None:
             line_item_expense_fields,
             "QUANTITY",
             [
-                r'ks'
+                r'ks',
+                r'mnozstvo',
+                r'mnozstvi',
+                r'pocet'
             ]
         )
         if not isinstance(quantity, str):
@@ -273,7 +287,8 @@ def fill_invoice_items(invoice: Invoice, line_items: List[Any]) -> None:
             line_item_expense_fields,
             "UNIT_PRICE",
             [
-                r'bez.*dph.*ks'
+                r'j.*cena',
+                r'bez.*dph'
             ]
         )
         if not isinstance(unit_price, str):
@@ -500,10 +515,10 @@ def run_tests() -> None:
 
 
 if __name__ == '__main__':
-    """
+
     test_run()
-    
-    
+
+    """
     # should be global in the api implementation
     textract_client = get_textract_client()
 
