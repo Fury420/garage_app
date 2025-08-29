@@ -199,7 +199,7 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
     # '32.51' or '32,51' pattern (at least one decimal digit before and after the '.' / ',' symbols)
     matches = findall(
         pattern=r'[0-9]+[.,][0-9]+',
-        string=sub_total,
+        string=unidecode(sub_total),
         flags=IGNORECASE | DOTALL
     )
     if len(matches) != 1:
@@ -220,14 +220,55 @@ def create_invoice(response: Dict[Any, Any]) -> Invoice | None:
         raise ValueError("Total missing or in invalid format")
     matches = findall(
         pattern=r'[0-9]+[.,][0-9]+',
-        string=total,
+        string=unidecode(total),
         flags=IGNORECASE | DOTALL
     )
     if len(matches) != 1 or not isinstance(matches[0], str):
         raise ValueError("Total missing or in invalid format")
     total = Decimal(matches[0].replace(',', '.', 1))
     invoice = Invoice(invoice_number, invoice_date, vendor_name, vendor_ico, vendor_dic, sub_total, total)
-    #  TODO fill Invoice with optional data
+    due_date = get_standard_field_value(
+        summary_fields,
+        "DUE_DATE",
+        [
+            r'datum.*splatnosti'
+        ]
+    )
+    if isinstance(due_date, str):
+        try:
+            due_date = datetime.fromisoformat(due_date.strip())
+            invoice.due_date = due_date
+        except ValueError:
+            pass
+    vendor_address = get_standard_field_value(
+        summary_fields,
+        "VENDOR_ADDRESS",
+        [
+            r'adresa.*dodavatel'
+        ]
+    )
+    if isinstance(vendor_address, str):
+        invoice.vendor_address = vendor_address
+    vendor_bank_account = get_standard_field_value(
+        summary_fields,
+        "ACCOUNT_NUMBER",
+        [
+            r'cislo.*uctu',
+            r'iban'
+        ]
+    )
+    if isinstance(vendor_bank_account, str):
+        invoice.vendor_bank_account = vendor_bank_account
+    payment_method = get_standard_field_value(
+        summary_fields,
+        "NONEXIST",
+        [
+            r'forma.*uhrady',
+            r'sposob.*platby'
+        ]
+    )
+    if isinstance(payment_method, str):
+        invoice.payment_method = payment_method
     line_item_groups = expense_document.get("LineItemGroups")
     if not isinstance(line_item_groups, list) or len(line_item_groups) < 1 or \
             not isinstance(line_item_groups[0], dict):
@@ -277,7 +318,7 @@ def fill_invoice_items(invoice: Invoice, line_items: List[Any]) -> None:
             continue
         matches = findall(
             pattern=r'[0-9]+',
-            string=quantity,
+            string=unidecode(quantity),
             flags=IGNORECASE | DOTALL
         )
         if len(matches) < 1 or not isinstance(matches[0], str):
@@ -295,14 +336,58 @@ def fill_invoice_items(invoice: Invoice, line_items: List[Any]) -> None:
             continue
         matches = findall(
             pattern=r'[0-9]+[.,][0-9]+',
-            string=unit_price,
+            string=unidecode(unit_price),
             flags=IGNORECASE | DOTALL
         )
         if len(matches) < 1 or not isinstance(matches[0], str):
             continue
         unit_price = Decimal(matches[0].replace(',', '.', 1))
         invoice.items.append(InvoiceItem(name, quantity, unit_price, quantity * unit_price))
-        # TODO fill InvoiceItem with optional data
+        vat_rate = get_standard_field_value(
+            line_item_expense_fields,
+            "OTHER",
+            [
+                r'sazba.*dph',
+                r'%.*dph'
+            ]
+        )
+        if isinstance(vat_rate, str):
+            matches = findall(
+                pattern=r'[0-9]+%',
+                string=unidecode(vat_rate),
+                flags=IGNORECASE | DOTALL
+            )
+            if len(matches) > 0 and isinstance(matches[0], str):
+                invoice.items[-1].vat_rate = Decimal(matches[0].replace('%', '', 1))
+        vat_amount = get_standard_field_value(
+            line_item_expense_fields,
+            "OTHER",
+            [
+                r'^(?!.*bez).*dph'
+            ]
+        )
+        if isinstance(vat_amount, str):
+            matches = findall(
+                pattern=r'[0-9]+[.,][0-9]+',
+                string=unidecode(vat_amount),
+                flags=IGNORECASE | DOTALL
+            )
+            if len(matches) > 0 and isinstance(matches[0], str):
+                invoice.items[-1].vat_amount = Decimal(matches[0].replace(',', '.', 1))
+        for field in line_item_expense_fields:
+            if not isinstance(field, dict):
+                continue
+            type_field = field.get("Type")
+            label_field = field.get("LabelDetection")
+            if not isinstance(type_field, dict) or not isinstance(label_field, dict):
+                continue
+            type_field_value = type_field.get("Text")
+            if not isinstance(type_field_value, str) or type_field_value != "QUANTITY":
+                continue
+            label_field_value = label_field.get("Text")
+            if isinstance(label_field_value, str):
+                invoice.items[-1].unit_of_measure = label_field_value
+                break
 
 
 def get_standard_field_value(
@@ -329,7 +414,6 @@ def get_standard_field_value(
             type_field_value = type_field.get("Text")
             if isinstance(type_field_value, str) and type_field_value == expected_type:
                 return value_field.get("Text")
-            continue
         label_field = field.get("LabelDetection")
         if isinstance(label_field, dict):
             label_field_value = label_field.get("Text")
@@ -516,7 +600,7 @@ def run_tests() -> None:
 
 if __name__ == '__main__':
 
-    test_run()
+    #test_run()
 
     """
     # should be global in the api implementation
