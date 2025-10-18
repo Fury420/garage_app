@@ -10,3 +10,6 @@
 
 #database cinfig
 *database_config.json
+
+# test invoices
+*.pdf
