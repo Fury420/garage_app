@@ -13,3 +13,7 @@
 
 # test invoices
 *.pdf
+
+# test out files
+*.json
+*.txt
